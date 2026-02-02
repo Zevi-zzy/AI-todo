@@ -1,6 +1,7 @@
 # Zevi AI to-do
 
-![Zevi AI to-do 预览](./public/preview.png)
+<img width="1024" height="628" alt="image" src="https://github.com/user-attachments/assets/23915d7e-42ef-43b3-9ae8-b41338b9fa9e" />
+
 
 **Zevi AI to-do** 是一款基于四象限法则（艾森豪威尔矩阵）的本地化个人任务管理工具。它结合了现代 Web 技术与极简设计，帮助用户高效地管理日常事务，同时确保数据的绝对隐私和安全。
 
@@ -10,7 +11,8 @@
 - **🛡️ 隐私优先**：所有数据均存储在浏览器本地（LocalStorage），无需联网，无需注册，数据完全掌握在您手中。
 - **✨ AI 智能优化**：内置 AI 魔法棒功能（需配置 Key），可一键优化任务描述，使其更清晰、更具行动导向。
 
-![AI 智能优化演示](./public/ai-demo.png)
+<img width="1024" height="628" alt="image" src="https://github.com/user-attachments/assets/eb710904-2cc4-4035-8242-b6e8c94a2eaa" />
+
 
 - **🎮 游戏化体验**：完成任务可获得经验值并升级，让任务管理变得更有趣。
 - **🚀 极速启动**：提供便携式启动脚本，内置运行环境，双击即用，无需繁琐配置。
