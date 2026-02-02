@@ -1,24 +1,53 @@
 # Zevi AI to-do
-Personal Local Quadrant Todo App.
 
-## Features
-- **Quadrant Method**: Organize tasks by urgency and importance.
-- **Local Storage**: All data is stored locally in your browser/device.
-- **AI Optimization**: Use AI to refine task descriptions (requires API key).
-- **Gamification**: Earn points and level up by completing tasks.
-- **PWA Support**: Install as a standalone app.
+**Zevi AI to-do** 是一款基于四象限法则（艾森豪威尔矩阵）的本地化个人任务管理工具。它结合了现代 Web 技术与极简设计，帮助用户高效地管理日常事务，同时确保数据的绝对隐私和安全。
 
-## Getting Started
+## 🎯 核心特色
 
-### Prerequisites
-- No pre-installed software required (Node.js is included).
+- **四象限管理**：将任务智能分类为“重要紧急”、“重要不紧急”、“紧急不重要”和“不重要不紧急”，助您聚焦关键事务。
+- **🛡️ 隐私优先**：所有数据均存储在浏览器本地（LocalStorage），无需联网，无需注册，数据完全掌握在您手中。
+- **✨ AI 智能优化**：内置 AI 魔法棒功能（需配置 Key），可一键优化任务描述，使其更清晰、更具行动导向。
+- **🎮 游戏化体验**：完成任务可获得经验值并升级，让任务管理变得更有趣。
+- **🚀 极速启动**：提供便携式启动脚本，内置运行环境，双击即用，无需繁琐配置。
 
-### Installation & Run
-1.  Double-click `启动ZeviTodo.command` script.
-2.  The browser will open automatically.
+## 🛠️ 技术栈
 
-Alternatively, if you have Node.js installed:
+- **前端框架**：React 18 + TypeScript
+- **构建工具**：Vite
+- **样式方案**：Tailwind CSS
+- **状态管理**：Zustand
+- **图标库**：Lucide React
+
+## 🚀 快速开始
+
+本项目已实现“绿色免安装”运行，内置了所需的 Node.js 环境。
+
+### 方式一：一键启动（推荐）
+
+1.  下载本项目代码。
+2.  找到项目根目录下的 **`启动ZeviTodo.command`** 文件。
+3.  双击运行该脚本。
+4.  脚本会自动启动服务并打开默认浏览器。
+
+### 方式二：手动运行（适用于开发者）
+
+如果您已安装 Node.js 环境，也可以通过命令行运行：
+
 ```bash
+# 安装依赖
 npm install
+
+# 启动开发服务器
 npm run dev
 ```
+
+## 📖 使用指南
+
+1.  **创建任务**：在对应象限点击“+”号，输入任务内容并回车。
+2.  **AI 优化**：输入内容后点击右侧的“魔法棒”图标，AI 将为您优化任务描述。
+3.  **拖拽排序**：支持在象限内或跨象限拖拽任务，系统会自动调整优先级。
+4.  **完成任务**：点击任务卡片即可标记完成。
+
+## 📄 许可证
+
+MIT License
