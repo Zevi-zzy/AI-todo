@@ -1,29 +1,63 @@
 #!/bin/bash
 # Zevi AI to-do Launcher
-# 这是一个简单的启动脚本，用于在本地启动 Zevi AI to-do 服务并打开浏览器
+
+# 尝试加载用户环境变量
+if [ -f "$HOME/.zshrc" ]; then
+    source "$HOME/.zshrc" >/dev/null 2>&1
+elif [ -f "$HOME/.bash_profile" ]; then
+    source "$HOME/.bash_profile" >/dev/null 2>&1
+fi
+
+# 手动添加常见的 Node 安装路径，防止环境变量未加载
+export PATH=$PATH:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
 
 # 获取脚本所在目录
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$DIR"
 
-echo "正在启动 Zevi AI to-do..."
+# 优先使用项目内置的本地 Node.js 环境
+if [ -d "$DIR/local_node/bin" ]; then
+    export PATH="$DIR/local_node/bin:$PATH"
+fi
+
+echo "========================================"
+echo "      正在启动 Zevi AI to-do..."
+echo "========================================"
+
+# 检查 node 是否可用
+if ! command -v node &> /dev/null; then
+    echo "❌ 错误: 未找到 Node.js 环境。"
+    echo "请确保您已安装 Node.js (https://nodejs.org/)"
+    echo "或者尝试在终端中手动运行此脚本。"
+    read -p "按任意键退出..."
+    exit 1
+fi
+
+echo "✅ Node.js 环境检测通过: $(node -v)"
 
 # 检查 node_modules 是否存在，如果不存在则安装依赖
 if [ ! -d "node_modules" ]; then
-    echo "首次运行，正在安装依赖..."
+    echo "📦 首次运行，正在安装依赖..."
     npm install
+    if [ $? -ne 0 ]; then
+        echo "❌ 依赖安装失败，请检查网络或配置。"
+        read -p "按任意键退出..."
+        exit 1
+    fi
 fi
 
-# 在后台启动开发服务器
-# 使用 nohup 让它在终端关闭后继续运行（可选，这里为了简单直接前台运行或者新窗口）
-# 这里我们选择打开一个新的终端窗口来运行服务，或者直接在当前窗口运行
-
-# 检查端口 5173 是否被占用，如果没有则使用 5173，否则 Vite 会自动选择下一个
-# 我们直接运行 npm run dev，Vite 会处理端口
-
-# 打开浏览器 (等待几秒让服务启动)
-(sleep 3 && open http://localhost:5174) &
-
 # 启动服务
-echo "服务已启动！按 Ctrl+C 停止服务。"
+echo "🚀 服务启动中..."
+echo "提示：服务启动成功后会自动打开浏览器。"
+echo "如果不小心关闭了浏览器，请访问: http://localhost:5174"
+echo "按 Ctrl+C 可以停止服务。"
+echo "----------------------------------------"
+
 npm run dev
+
+# 如果 npm run dev 异常退出，保持窗口打开以便查看错误
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "❌ 服务异常退出。"
+    read -p "按任意键关闭窗口..."
+fi
