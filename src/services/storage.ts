@@ -55,4 +55,40 @@ export class LocalStorageService {
   static loadViewPreference(): TimeView | null {
     return localStorage.getItem(STORAGE_KEYS.VIEW_PREFERENCES) as TimeView;
   }
+
+  static exportData(): string {
+    const data = {
+      tasks: this.loadTasks(),
+      userProfile: this.loadUserProfile(),
+      viewPreference: this.loadViewPreference(),
+      timestamp: Date.now(),
+      version: '1.0'
+    };
+    return JSON.stringify(data, null, 2);
+  }
+
+  static importData(jsonString: string): boolean {
+    try {
+      const data = JSON.parse(jsonString);
+      
+      // Basic validation
+      if (!Array.isArray(data.tasks)) {
+        throw new Error('Invalid data format: tasks missing');
+      }
+
+      // Save all data
+      this.saveTasks(data.tasks);
+      if (data.userProfile) {
+        this.saveUserProfile(data.userProfile);
+      }
+      if (data.viewPreference) {
+        this.saveViewPreference(data.viewPreference);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Import failed:', error);
+      return false;
+    }
+  }
 }

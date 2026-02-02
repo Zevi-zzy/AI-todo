@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Trash2, CheckCircle2, Circle, AlertCircle, Briefcase, User, MoreHorizontal } from 'lucide-react';
 import { Task, TaskCategory } from '../types';
 import { useStore } from '../store/useStore';
@@ -34,11 +34,42 @@ const formatTaskDate = (timestamp: number) => {
 };
 
 export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
-  const { toggleTaskStatus, deleteTask } = useStore();
-  
+  const { toggleTaskStatus, deleteTask, updateTask } = useStore();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(task.content);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isEditing]);
+
+  const handleSave = () => {
+    if (editValue.trim() && editValue.trim() !== task.content) {
+      updateTask(task.id, { content: editValue.trim() });
+    } else {
+      setEditValue(task.content);
+    }
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSave();
+    } else if (e.key === 'Escape') {
+      setEditValue(task.content);
+      setIsEditing(false);
+    }
+  };
+
   const isOverdue = task.status === 'pending' && isBefore(task.createdAt, startOfToday());
 
   const handleDragStart = (e: React.DragEvent) => {
+    if (isEditing) {
+      e.preventDefault();
+      return;
+    }
     e.dataTransfer.setData('taskId', task.id);
     e.dataTransfer.effectAllowed = 'move';
     // Add a class to styling the drag source if needed, usually done via state or css classes
@@ -46,11 +77,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
 
   return (
     <div
-      draggable
+      draggable={!isEditing}
       onDragStart={handleDragStart}
       className={cn(
-        "group bg-white p-3 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-move flex items-start gap-3 select-none active:cursor-grabbing",
-        task.status === 'completed' && "opacity-60 bg-gray-50"
+        "group bg-white p-3 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-all flex items-start gap-3 select-none",
+        isEditing ? "cursor-text ring-2 ring-blue-500 ring-opacity-50" : "cursor-move active:cursor-grabbing",
+        task.status === 'completed' && !isEditing && "opacity-60 bg-gray-50"
       )}
     >
       <button
@@ -64,13 +96,25 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
         )}
       </button>
       
-      <div className="flex-1 min-w-0">
-        <p className={cn(
-          "text-sm text-gray-700 break-words leading-relaxed",
-          task.status === 'completed' && "line-through text-gray-400"
-        )}>
-          {task.content}
-        </p>
+      <div className="flex-1 min-w-0" onClick={() => !isEditing && setIsEditing(true)}>
+        {isEditing ? (
+          <input
+            ref={inputRef}
+            type="text"
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={handleSave}
+            onKeyDown={handleKeyDown}
+            className="w-full text-sm text-gray-700 bg-transparent border-none outline-none p-0 placeholder-gray-400"
+          />
+        ) : (
+          <p className={cn(
+            "text-sm text-gray-700 break-words leading-relaxed cursor-text",
+            task.status === 'completed' && "line-through text-gray-400"
+          )}>
+            {task.content}
+          </p>
+        )}
         <div className="mt-1 flex items-center gap-2">
             <span className={cn(
               "text-xs",

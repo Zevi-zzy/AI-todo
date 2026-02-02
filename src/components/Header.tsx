@@ -1,10 +1,54 @@
-import React from 'react';
-import { LayoutGrid } from 'lucide-react';
+import React, { useRef } from 'react';
+import { LayoutGrid, Download, Upload, Settings } from 'lucide-react';
 import { TimeFilter } from './TimeFilter';
 import { CategoryFilter } from './CategoryFilter';
 import { LevelProgress } from './LevelProgress';
+import { LocalStorageService } from '../services/storage';
 
 export const Header: React.FC = () => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExport = () => {
+    const data = LocalStorageService.exportData();
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `zevi-todo-backup-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) {
+        if (window.confirm('导入将覆盖当前所有数据，确定要继续吗？')) {
+          const success = LocalStorageService.importData(content);
+          if (success) {
+            alert('数据导入成功！页面即将刷新。');
+            window.location.reload();
+          } else {
+            alert('数据导入失败，请检查文件格式。');
+          }
+        }
+      }
+    };
+    reader.readAsText(file);
+    // Reset input so same file can be selected again
+    e.target.value = '';
+  };
+
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -18,9 +62,33 @@ export const Header: React.FC = () => {
           <CategoryFilter />
         </div>
         
-        <div className="flex items-center">
+        <div className="flex items-center gap-4">
           <LevelProgress />
           <TimeFilter />
+          
+          <div className="flex items-center gap-1 border-l pl-4 border-gray-200">
+            <button
+              onClick={handleExport}
+              className="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-lg transition-colors"
+              title="导出数据备份"
+            >
+              <Download className="w-5 h-5" />
+            </button>
+            <button
+              onClick={handleImportClick}
+              className="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-lg transition-colors"
+              title="导入数据恢复"
+            >
+              <Upload className="w-5 h-5" />
+            </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept=".json"
+              className="hidden"
+            />
+          </div>
         </div>
       </div>
     </header>
