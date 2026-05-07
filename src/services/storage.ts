@@ -1,10 +1,11 @@
-import { Task, TimeView } from '../types';
+import { DeletedTaskLogEntry, Task, TimeView } from '../types';
 
 const STORAGE_KEYS = {
   TASKS: 'quadrant-todo-tasks',
   SETTINGS: 'quadrant-todo-settings',
   VIEW_PREFERENCES: 'quadrant-todo-view',
-  USER_PROFILE: 'quadrant-todo-user'
+  USER_PROFILE: 'quadrant-todo-user',
+  DELETION_LOG: 'quadrant-todo-deletion-log'
 };
 
 export class LocalStorageService {
@@ -56,11 +57,35 @@ export class LocalStorageService {
     return localStorage.getItem(STORAGE_KEYS.VIEW_PREFERENCES) as TimeView;
   }
 
+  static saveDeletionLog(entries: DeletedTaskLogEntry[]): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.DELETION_LOG, JSON.stringify(entries));
+    } catch (error) {
+      console.error('Failed to save deletion log', error);
+    }
+  }
+
+  static loadDeletionLog(): DeletedTaskLogEntry[] {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.DELETION_LOG);
+      return stored ? JSON.parse(stored) : [];
+    } catch (error) {
+      console.error('Failed to load deletion log', error);
+      return [];
+    }
+  }
+
+  static appendDeletionLog(entry: DeletedTaskLogEntry): void {
+    const existing = this.loadDeletionLog();
+    this.saveDeletionLog([entry, ...existing]);
+  }
+
   static exportData(): string {
     const data = {
       tasks: this.loadTasks(),
       userProfile: this.loadUserProfile(),
       viewPreference: this.loadViewPreference(),
+      deletionLog: this.loadDeletionLog(),
       timestamp: Date.now(),
       version: '1.0'
     };
@@ -83,6 +108,9 @@ export class LocalStorageService {
       }
       if (data.viewPreference) {
         this.saveViewPreference(data.viewPreference);
+      }
+      if (Array.isArray(data.deletionLog)) {
+        this.saveDeletionLog(data.deletionLog);
       }
       
       return true;

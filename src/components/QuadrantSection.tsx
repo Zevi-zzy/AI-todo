@@ -8,9 +8,10 @@ import { useStore } from '../store/useStore';
 interface QuadrantSectionProps {
   priority: Priority;
   tasks: Task[];
+  showTitle?: boolean;
 }
 
-export const QuadrantSection: React.FC<QuadrantSectionProps> = ({ priority, tasks }) => {
+export const QuadrantSection: React.FC<QuadrantSectionProps> = ({ priority, tasks, showTitle = false }) => {
   const { updateTask, reorderTasks } = useStore();
   const [isDragOver, setIsDragOver] = useState(false);
   const config = PRIORITY_CONFIG[priority];
@@ -72,9 +73,14 @@ export const QuadrantSection: React.FC<QuadrantSectionProps> = ({ priority, task
                 <TaskCard task={task} />
             </div>
         ))}
-        {tasks.length === 0 && (
+        {tasks.length === 0 && !showTitle && (
             <div className="h-full flex items-center justify-center text-gray-400 text-sm italic min-h-[100px]">
                 暂无任务
+            </div>
+        )}
+        {tasks.length === 0 && showTitle && (
+            <div className="h-full flex items-center justify-center text-gray-300 text-sm min-h-[100px]">
+                无匹配任务
             </div>
         )}
       </div>

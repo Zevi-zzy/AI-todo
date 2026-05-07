@@ -12,6 +12,9 @@ local_node
 dist
 dist-ssr
 *.local
+.env
+数据/
+.trae/documents/*计划*.md
 
 # Editor directories and files
 .vscode/*

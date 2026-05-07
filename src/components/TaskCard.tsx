@@ -4,7 +4,6 @@ import { Task, TaskCategory } from '../types';
 import { useStore } from '../store/useStore';
 import { cn } from '../lib/utils';
 import { format, isToday, isYesterday, isThisYear, isBefore, startOfToday } from 'date-fns';
-import { zhCN } from 'date-fns/locale';
 
 interface TaskCardProps {
   task: Task;
@@ -37,13 +36,27 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
   const { toggleTaskStatus, deleteTask, updateTask } = useStore();
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(task.content);
+  const [showCategoryMenu, setShowCategoryMenu] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
       inputRef.current.focus();
     }
   }, [isEditing]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowCategoryMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const handleSave = () => {
     if (editValue.trim() && editValue.trim() !== task.content) {
@@ -63,7 +76,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
     }
   };
 
-  const isOverdue = task.status === 'pending' && isBefore(task.createdAt, startOfToday());
+  const isOverdue = task.status === 'pending' && isBefore(task.updatedAt, startOfToday());
 
   const handleDragStart = (e: React.DragEvent) => {
     if (isEditing) {
@@ -121,12 +134,43 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
               isOverdue ? "text-red-500 font-medium flex items-center gap-1" : "text-gray-400"
             )}>
                 {isOverdue && <AlertCircle className="w-3 h-3" />}
-                {formatTaskDate(task.createdAt)}
+                {formatTaskDate(task.updatedAt)}
                 {isOverdue && " (已逾期)"}
             </span>
-            <span className="text-xs text-gray-300 flex items-center gap-1 ml-auto">
+            <div className="ml-auto relative" ref={menuRef}>
+              <button 
+                className="text-xs text-gray-300 hover:text-gray-500 hover:bg-gray-100 p-1 rounded transition-colors flex items-center gap-1"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowCategoryMenu(!showCategoryMenu);
+                }}
+                title="移动到其他分类"
+              >
                 <CategoryIcon category={task.category} />
-            </span>
+              </button>
+              
+              {showCategoryMenu && (
+                <div className="absolute right-0 bottom-full mb-1 bg-white border border-gray-100 shadow-lg rounded-lg py-1 z-10 w-24 overflow-hidden animate-in fade-in slide-in-from-bottom-2">
+                  {(['work', 'personal', 'other'] as TaskCategory[]).map((cat) => (
+                    <button
+                      key={cat}
+                      className={cn(
+                        "w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-gray-50 transition-colors",
+                        task.category === cat ? "text-blue-600 bg-blue-50/50" : "text-gray-600"
+                      )}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        updateTask(task.id, { category: cat });
+                        setShowCategoryMenu(false);
+                      }}
+                    >
+                      <CategoryIcon category={cat} />
+                      <span>{cat === 'work' ? '工作' : cat === 'personal' ? '个人' : '其他'}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
         </div>
       </div>
 

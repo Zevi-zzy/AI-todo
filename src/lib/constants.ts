@@ -1,5 +1,8 @@
 import { Priority } from '../types';
 
+export const OVERDUE_ARCHIVE_DAYS = 14;
+export const OVERDUE_ARCHIVE_MS = OVERDUE_ARCHIVE_DAYS * 24 * 60 * 60 * 1000;
+
 export const PRIORITY_CONFIG: Record<Priority, { label: string; color: string; bg: string; border: string; headerBg: string }> = {
   'urgent-important': {
     label: '重要且紧急',

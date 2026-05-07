@@ -1,14 +1,35 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
-import { AppState, Priority, Task, TimeView, TaskCategory } from '../types';
+import { AppState, DeletedTaskLogEntry, Priority, Task, TimeView, TaskCategory } from '../types';
 import { LocalStorageService } from '../services/storage';
 import { calculateLevel } from '../lib/level';
+import { OVERDUE_ARCHIVE_MS } from '../lib/constants';
 
 export const useStore = create<AppState>((set) => {
-  const tasks = LocalStorageService.loadTasks().map(t => ({
+  const normalizeTask = (t: any): Task => ({
     ...t,
-    category: t.category || 'work' // 兼容旧数据
-  }));
+    category: t.category || 'work',
+    updatedAt: typeof t.updatedAt === 'number' ? t.updatedAt : t.createdAt,
+    isArchived: Boolean(t.isArchived),
+  });
+
+  const applyAutoArchive = (inputTasks: Task[], now: number) => {
+    let changed = false;
+    const tasks = inputTasks.map((t) => {
+      if (t.status === 'pending' && !t.isArchived && t.updatedAt <= now - OVERDUE_ARCHIVE_MS) {
+        changed = true;
+        return { ...t, isArchived: true, archivedAt: now };
+      }
+      return t;
+    });
+    return { tasks, changed };
+  };
+
+  const loadedTasks = LocalStorageService.loadTasks().map(normalizeTask);
+  const { tasks, changed } = applyAutoArchive(loadedTasks, Date.now());
+  if (changed) {
+    LocalStorageService.saveTasks(tasks);
+  }
 
   // 初始化时计算历史任务积分
   const initialUser = LocalStorageService.loadUserProfile();
@@ -39,112 +60,173 @@ export const useStore = create<AppState>((set) => {
     tasks,
     currentView: LocalStorageService.loadViewPreference() || 'today',
     currentCategory: 'work',
+    searchQuery: '',
     user: userProfile,
     isLoading: false,
 
     addTask: (content: string, priority: Priority, category: TaskCategory) => {
-    const newTask: Task = {
-      id: uuidv4(),
-      content,
-      priority,
-      category,
-      status: 'pending',
-      createdAt: Date.now(),
-      order: Date.now(),
-    };
+      const now = Date.now();
+      const newTask: Task = {
+        id: uuidv4(),
+        content,
+        priority,
+        category,
+        status: 'pending',
+        createdAt: now,
+        updatedAt: now,
+        order: now,
+        isArchived: false,
+      };
     
-    set((state) => {
-      const newTasks = [newTask, ...state.tasks];
-      LocalStorageService.saveTasks(newTasks);
-      return { tasks: newTasks };
-    });
-  },
-
-  setCategory: (category: TaskCategory) => {
-    set({ currentCategory: category });
-  },
-
-  toggleTaskStatus: (taskId: string) => {
-    set((state) => {
-      let pointsDelta = 0;
-
-      const newTasks = state.tasks.map((t) => {
-        if (t.id === taskId) {
-            const newStatus = t.status === 'pending' ? 'completed' : 'pending';
-            // Calculate points delta
-            if (newStatus === 'completed') {
-              pointsDelta = 1;
-            } else {
-              pointsDelta = -1;
-            }
-
-            return {
-              ...t,
-              status: newStatus,
-              completedAt: newStatus === 'completed' ? Date.now() : undefined,
-            };
-        }
-        return t;
+      set((state) => {
+        const merged = [newTask, ...state.tasks];
+        const { tasks: archived } = applyAutoArchive(merged, now);
+        LocalStorageService.saveTasks(archived);
+        return { tasks: archived };
       });
+    },
 
-      // Update user profile
-      const currentPoints = state.user.points;
-      // Prevent points from going below 0
-      const newPoints = Math.max(0, currentPoints + pointsDelta);
-      const newLevel = calculateLevel(newPoints);
-      
-      const newUserProfile = {
-        level: newLevel,
-        points: newPoints
-      };
+    setCategory: (category: TaskCategory) => {
+      set({ currentCategory: category });
+    },
 
-      LocalStorageService.saveTasks(newTasks);
-      LocalStorageService.saveUserProfile(newUserProfile);
-      
-      return { 
-        tasks: newTasks,
-        user: newUserProfile
-      };
-    });
-  },
+    setSearchQuery: (query: string) => {
+      set({ searchQuery: query });
+    },
 
-  deleteTask: (taskId: string) => {
-    set((state) => {
-      const newTasks = state.tasks.filter((t) => t.id !== taskId);
-      LocalStorageService.saveTasks(newTasks);
-      return { tasks: newTasks };
-    });
-  },
+    toggleTaskStatus: (taskId: string) => {
+      set((state) => {
+        let pointsDelta = 0;
+        const now = Date.now();
 
-  reorderTasks: (activeId: string, overId: string) => {
-    set((state) => {
-      const oldIndex = state.tasks.findIndex((t) => t.id === activeId);
-      const newIndex = state.tasks.findIndex((t) => t.id === overId);
-      
-      if (oldIndex < 0 || newIndex < 0) return state;
+        const newTasks = state.tasks.map((t) => {
+          if (t.id === taskId) {
+              const newStatus: "pending" | "completed" = t.status === 'pending' ? 'completed' : 'pending';
+              // Calculate points delta
+              if (newStatus === 'completed') {
+                pointsDelta = 1;
+              } else {
+                pointsDelta = -1;
+              }
 
-      const newTasks = [...state.tasks];
-      const [movedTask] = newTasks.splice(oldIndex, 1);
-      newTasks.splice(newIndex, 0, movedTask);
-      
-      LocalStorageService.saveTasks(newTasks);
-      return { tasks: newTasks };
-    });
-  },
+              return {
+                ...t,
+                status: newStatus,
+                completedAt: newStatus === 'completed' ? now : undefined,
+                updatedAt: now,
+              };
+          }
+          return t;
+        });
 
-  setTimeView: (view: TimeView) => {
-    set({ currentView: view });
-    LocalStorageService.saveViewPreference(view);
-  },
+        const { tasks: archivedTasks } = applyAutoArchive(newTasks, now);
 
-  updateTask: (taskId: string, updates: Partial<Task>) => {
-    set((state) => {
-       const newTasks = state.tasks.map((t) =>
-        t.id === taskId ? { ...t, ...updates } : t
-      );
-      LocalStorageService.saveTasks(newTasks);
-      return { tasks: newTasks };
-    });
-  }
+        // Update user profile
+        const currentPoints = state.user.points;
+        // Prevent points from going below 0
+        const newPoints = Math.max(0, currentPoints + pointsDelta);
+        const newLevel = calculateLevel(newPoints);
+        
+        const newUserProfile = {
+          level: newLevel,
+          points: newPoints
+        };
+
+        LocalStorageService.saveTasks(archivedTasks);
+        LocalStorageService.saveUserProfile(newUserProfile);
+        
+        return { 
+          tasks: archivedTasks,
+          user: newUserProfile
+        };
+      });
+    },
+
+    deleteTask: (taskId: string) => {
+      set((state) => {
+        const newTasks = state.tasks.filter((t) => t.id !== taskId);
+        LocalStorageService.saveTasks(newTasks);
+        return { tasks: newTasks };
+      });
+    },
+
+    restoreTask: (taskId: string) => {
+      set((state) => {
+        const now = Date.now();
+        const restored = state.tasks.map((t) =>
+          t.id === taskId ? { ...t, isArchived: false, archivedAt: undefined, updatedAt: now } : t
+        );
+        const { tasks: archivedTasks } = applyAutoArchive(restored, now);
+        LocalStorageService.saveTasks(archivedTasks);
+        return { tasks: archivedTasks };
+      });
+    },
+
+    deleteArchivedTask: (taskId: string, reason: string) => {
+      set((state) => {
+        const trimmedReason = reason.trim();
+        if (!trimmedReason) return state;
+
+        const target = state.tasks.find((t) => t.id === taskId);
+        if (!target) return state;
+
+        const now = Date.now();
+        const entry: DeletedTaskLogEntry = {
+          id: target.id,
+          content: target.content,
+          priority: target.priority,
+          category: target.category,
+          status: target.status,
+          createdAt: target.createdAt,
+          updatedAt: target.updatedAt,
+          completedAt: target.completedAt,
+          archivedAt: target.archivedAt,
+          deletedAt: now,
+          reason: trimmedReason,
+        };
+
+        LocalStorageService.appendDeletionLog(entry);
+
+        const remaining = state.tasks.filter((t) => t.id !== taskId);
+        const { tasks: archivedTasks } = applyAutoArchive(remaining, now);
+        LocalStorageService.saveTasks(archivedTasks);
+        return { tasks: archivedTasks };
+      });
+    },
+
+    reorderTasks: (activeId: string, overId: string) => {
+      set((state) => {
+        const now = Date.now();
+        const oldIndex = state.tasks.findIndex((t) => t.id === activeId);
+        const newIndex = state.tasks.findIndex((t) => t.id === overId);
+        
+        if (oldIndex < 0 || newIndex < 0) return state;
+
+        const newTasks = [...state.tasks];
+        const [movedTask] = newTasks.splice(oldIndex, 1);
+        newTasks.splice(newIndex, 0, { ...movedTask, updatedAt: now });
+        
+        const { tasks: archivedTasks } = applyAutoArchive(newTasks, now);
+        LocalStorageService.saveTasks(archivedTasks);
+        return { tasks: archivedTasks };
+      });
+    },
+
+    setTimeView: (view: TimeView) => {
+      set({ currentView: view });
+      LocalStorageService.saveViewPreference(view);
+    },
+
+    updateTask: (taskId: string, updates: Partial<Task>) => {
+      set((state) => {
+        const now = Date.now();
+        const newTasks = state.tasks.map((t) =>
+          t.id === taskId ? { ...t, ...updates, updatedAt: now } : t
+        );
+        const { tasks: archivedTasks } = applyAutoArchive(newTasks, now);
+        LocalStorageService.saveTasks(archivedTasks);
+        return { tasks: archivedTasks };
+      });
+    }
   };
 });
