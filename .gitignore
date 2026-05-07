@@ -15,6 +15,8 @@ dist-ssr
 .env
 数据/
 .trae/documents/*计划*.md
+.trae_github_ed25519
+.trae_github_ed25519.pub
 
 # Editor directories and files
 .vscode/*
