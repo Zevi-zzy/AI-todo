@@ -104,8 +104,8 @@ export const UserManualDialog: React.FC<UserManualDialogProps> = ({ open, onClos
               <h3 className="text-base font-semibold text-gray-900">逾期收纳箱（新）</h3>
               <ul className="mt-2 list-disc pl-5 space-y-1 text-gray-600">
                 <li>自动收纳：未完成任务如果“最后编辑时间”超过 14 天，会自动进入收纳箱，主界面不再显示</li>
-                <li>恢复：在收纳箱点击恢复按钮，任务回到主列表</li>
-                <li>彻底删除：在收纳箱删除必须填写原因；原因会写入本地删除记录，并随备份导出</li>
+                <li>恢复：在收纳箱点击恢复按钮，选择一个恢复理由，任务即回到主列表；理由会写入本地恢复记录，并随备份导出</li>
+                <li>彻底删除：在收纳箱删除需选择一个原因并点确认；原因会写入本地删除记录，并随备份导出</li>
               </ul>
             </section>
 

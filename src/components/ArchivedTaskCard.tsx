@@ -37,7 +37,7 @@ export const ArchivedTaskCard: React.FC<ArchivedTaskCardProps> = ({ task, onRest
           className={cn(
             "p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-blue-600 transition-colors"
           )}
-          title="恢复到主列表"
+          title="恢复到主列表（选择理由）"
         >
           <RotateCcw className="w-4 h-4" />
         </button>
@@ -45,7 +45,7 @@ export const ArchivedTaskCard: React.FC<ArchivedTaskCardProps> = ({ task, onRest
           type="button"
           onClick={onDelete}
           className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-red-600 transition-colors"
-          title="彻底删除（需填写原因）"
+          title="彻底删除（需选择原因）"
         >
           <Trash2 className="w-4 h-4" />
         </button>

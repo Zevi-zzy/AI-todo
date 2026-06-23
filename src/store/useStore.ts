@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
-import { AppState, DeletedTaskLogEntry, Priority, Task, TimeView, TaskCategory } from '../types';
+import { AppState, DeletedTaskLogEntry, Priority, RestoredTaskLogEntry, Task, TimeView, TaskCategory } from '../types';
 import { LocalStorageService } from '../services/storage';
 import { calculateLevel } from '../lib/level';
 import { OVERDUE_ARCHIVE_MS } from '../lib/constants';
@@ -150,9 +150,30 @@ export const useStore = create<AppState>((set) => {
       });
     },
 
-    restoreTask: (taskId: string) => {
+    restoreTask: (taskId: string, reason: string) => {
       set((state) => {
+        const trimmedReason = reason.trim();
+        if (!trimmedReason) return state;
+
+        const target = state.tasks.find((t) => t.id === taskId);
+        if (!target || !target.isArchived) return state;
+
         const now = Date.now();
+        const entry: RestoredTaskLogEntry = {
+          id: target.id,
+          content: target.content,
+          priority: target.priority,
+          category: target.category,
+          status: target.status,
+          createdAt: target.createdAt,
+          updatedAt: target.updatedAt,
+          completedAt: target.completedAt,
+          archivedAt: target.archivedAt,
+          restoredAt: now,
+          reason: trimmedReason,
+        };
+        LocalStorageService.appendRestoreLog(entry);
+
         const restored = state.tasks.map((t) =>
           t.id === taskId ? { ...t, isArchived: false, archivedAt: undefined, updatedAt: now } : t
         );

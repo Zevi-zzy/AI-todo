@@ -1,4 +1,4 @@
-import { DeletedTaskLogEntry, Task, TimeView } from '../types';
+import { DeletedTaskLogEntry, RestoredTaskLogEntry, Task, TimeView } from '../types';
 import { getMinimumPointsForLevel } from '../lib/level';
 
 const STORAGE_KEYS = {
@@ -6,7 +6,8 @@ const STORAGE_KEYS = {
   SETTINGS: 'quadrant-todo-settings',
   VIEW_PREFERENCES: 'quadrant-todo-view',
   USER_PROFILE: 'quadrant-todo-user',
-  DELETION_LOG: 'quadrant-todo-deletion-log'
+  DELETION_LOG: 'quadrant-todo-deletion-log',
+  RESTORE_LOG: 'quadrant-todo-restore-log'
 };
 
 const DEFAULT_INITIAL_LEVEL = 7;
@@ -87,12 +88,36 @@ export class LocalStorageService {
     this.saveDeletionLog([entry, ...existing]);
   }
 
+  static saveRestoreLog(entries: RestoredTaskLogEntry[]): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.RESTORE_LOG, JSON.stringify(entries));
+    } catch (error) {
+      console.error('Failed to save restore log', error);
+    }
+  }
+
+  static loadRestoreLog(): RestoredTaskLogEntry[] {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.RESTORE_LOG);
+      return stored ? JSON.parse(stored) : [];
+    } catch (error) {
+      console.error('Failed to load restore log', error);
+      return [];
+    }
+  }
+
+  static appendRestoreLog(entry: RestoredTaskLogEntry): void {
+    const existing = this.loadRestoreLog();
+    this.saveRestoreLog([entry, ...existing]);
+  }
+
   static exportData(): string {
     const data = {
       tasks: this.loadTasks(),
       userProfile: this.loadUserProfile(),
       viewPreference: this.loadViewPreference(),
       deletionLog: this.loadDeletionLog(),
+      restoreLog: this.loadRestoreLog(),
       timestamp: Date.now(),
       version: '1.0'
     };
@@ -119,7 +144,10 @@ export class LocalStorageService {
       if (Array.isArray(data.deletionLog)) {
         this.saveDeletionLog(data.deletionLog);
       }
-      
+      if (Array.isArray(data.restoreLog)) {
+        this.saveRestoreLog(data.restoreLog);
+      }
+
       return true;
     } catch (error) {
       console.error('Import failed:', error);

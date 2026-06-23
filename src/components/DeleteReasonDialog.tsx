@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Check, X } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { DELETE_REASONS } from '../lib/constants';
 
 interface DeleteReasonDialogProps {
   open: boolean;
@@ -18,15 +19,9 @@ export const DeleteReasonDialog: React.FC<DeleteReasonDialogProps> = ({
   onConfirm,
 }) => {
   const [reason, setReason] = useState('');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const trimmed = reason.trim();
 
   useEffect(() => {
-    if (!open) {
-      setReason('');
-      return;
-    }
-    requestAnimationFrame(() => textareaRef.current?.focus());
+    if (!open) setReason('');
   }, [open]);
 
   useEffect(() => {
@@ -63,16 +58,37 @@ export const DeleteReasonDialog: React.FC<DeleteReasonDialogProps> = ({
           </button>
         </div>
         <div className="px-5 py-4">
-          <textarea
-            ref={textareaRef}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            rows={4}
-            placeholder="例如：已不再需要 / 计划调整 / 重复任务 ..."
-            className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-          <p className={cn("mt-2 text-xs", trimmed ? "text-gray-400" : "text-red-500")}>
-            {trimmed ? '删除原因会写入本地删除记录（随备份导出）。' : '删除原因不能为空。'}
+          <p className="mb-3 text-sm text-gray-500">请选择删除原因：</p>
+          <div className="grid gap-2">
+            {DELETE_REASONS.map((item) => {
+              const selected = reason === item;
+              return (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => setReason(item)}
+                  className={cn(
+                    'flex items-center gap-2 w-full text-left px-3 py-2.5 text-sm rounded-lg border transition-colors',
+                    selected
+                      ? 'border-red-500 bg-red-50 text-red-700'
+                      : 'border-gray-200 text-gray-700 hover:border-red-300 hover:bg-red-50/50'
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'flex items-center justify-center w-4 h-4 rounded-full border flex-shrink-0',
+                      selected ? 'border-red-500 bg-red-500 text-white' : 'border-gray-300'
+                    )}
+                  >
+                    {selected && <Check className="w-3 h-3" />}
+                  </span>
+                  {item}
+                </button>
+              );
+            })}
+          </div>
+          <p className={cn('mt-3 text-xs', reason ? 'text-gray-400' : 'text-red-500')}>
+            {reason ? '删除原因会写入本地删除记录（随备份导出）。' : '请先选择一个删除原因。'}
           </p>
         </div>
         <div className="px-5 pb-5 flex items-center justify-end gap-2">
@@ -85,8 +101,8 @@ export const DeleteReasonDialog: React.FC<DeleteReasonDialogProps> = ({
           </button>
           <button
             type="button"
-            disabled={!trimmed}
-            onClick={() => onConfirm(trimmed)}
+            disabled={!reason}
+            onClick={() => onConfirm(reason)}
             className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:hover:bg-red-600"
           >
             {confirmText}
@@ -96,4 +112,3 @@ export const DeleteReasonDialog: React.FC<DeleteReasonDialogProps> = ({
     </div>
   );
 };
-

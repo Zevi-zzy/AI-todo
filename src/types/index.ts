@@ -35,6 +35,20 @@ export interface DeletedTaskLogEntry {
   reason: string;
 }
 
+export interface RestoredTaskLogEntry {
+  id: string;
+  content: string;
+  priority: Priority;
+  category: TaskCategory;
+  status: TaskStatus;
+  createdAt: number;
+  updatedAt: number;
+  completedAt?: number;
+  archivedAt?: number;
+  restoredAt: number;
+  reason: string;
+}
+
 export interface UserProfile {
   level: number;
   points: number;
@@ -50,7 +64,7 @@ export interface AppState {
   addTask: (content: string, priority: Priority, category: TaskCategory) => void;
   toggleTaskStatus: (taskId: string) => void;
   deleteTask: (taskId: string) => void;
-  restoreTask: (taskId: string) => void;
+  restoreTask: (taskId: string, reason: string) => void;
   deleteArchivedTask: (taskId: string, reason: string) => void;
   reorderTasks: (activeId: string, overId: string) => void;
   setTimeView: (view: TimeView) => void;

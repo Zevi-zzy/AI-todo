@@ -5,6 +5,7 @@ import { Task } from '../types';
 import { cn } from '../lib/utils';
 import { ArchivedTaskCard } from './ArchivedTaskCard';
 import { DeleteReasonDialog } from './DeleteReasonDialog';
+import { RestoreReasonDialog } from './RestoreReasonDialog';
 
 interface ArchiveDrawerProps {
   open: boolean;
@@ -15,6 +16,7 @@ export const ArchiveDrawer: React.FC<ArchiveDrawerProps> = ({ open, onClose }) =
   const { tasks, restoreTask, deleteArchivedTask } = useStore();
   const [query, setQuery] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
+  const [restoreTarget, setRestoreTarget] = useState<Task | null>(null);
 
   const archivedTasks = useMemo(() => {
     const filtered = tasks.filter((t) => t.isArchived);
@@ -89,7 +91,7 @@ export const ArchiveDrawer: React.FC<ArchiveDrawerProps> = ({ open, onClose }) =
               <ArchivedTaskCard
                 key={t.id}
                 task={t}
-                onRestore={() => restoreTask(t.id)}
+                onRestore={() => setRestoreTarget(t)}
                 onDelete={() => setDeleteTarget(t)}
               />
             ))
@@ -100,6 +102,17 @@ export const ArchiveDrawer: React.FC<ArchiveDrawerProps> = ({ open, onClose }) =
           )}
         </div>
       </div>
+
+      <RestoreReasonDialog
+        open={Boolean(restoreTarget)}
+        taskContent={restoreTarget?.content}
+        onClose={() => setRestoreTarget(null)}
+        onSelect={(reason) => {
+          if (!restoreTarget) return;
+          restoreTask(restoreTarget.id, reason);
+          setRestoreTarget(null);
+        }}
+      />
 
       <DeleteReasonDialog
         open={Boolean(deleteTarget)}
