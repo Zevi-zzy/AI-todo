@@ -23,6 +23,21 @@
 export const BASE_XP = 10;
 export const XP_INCREMENT = 5;
 
+// Get the minimum total points required to reach a target level.
+export function getMinimumPointsForLevel(targetLevel: number): number {
+  if (targetLevel <= 1) return 0;
+
+  let totalPoints = 0;
+  let pointsForNext = BASE_XP;
+
+  for (let level = 1; level < targetLevel; level++) {
+    totalPoints += pointsForNext;
+    pointsForNext += XP_INCREMENT;
+  }
+
+  return totalPoints;
+}
+
 // Calculate level based on total points
 export function calculateLevel(points: number): number {
   let level = 1;

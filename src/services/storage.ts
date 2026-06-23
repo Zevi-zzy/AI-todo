@@ -1,4 +1,5 @@
 import { DeletedTaskLogEntry, Task, TimeView } from '../types';
+import { getMinimumPointsForLevel } from '../lib/level';
 
 const STORAGE_KEYS = {
   TASKS: 'quadrant-todo-tasks',
@@ -6,6 +7,12 @@ const STORAGE_KEYS = {
   VIEW_PREFERENCES: 'quadrant-todo-view',
   USER_PROFILE: 'quadrant-todo-user',
   DELETION_LOG: 'quadrant-todo-deletion-log'
+};
+
+const DEFAULT_INITIAL_LEVEL = 7;
+const DEFAULT_USER_PROFILE = {
+  level: DEFAULT_INITIAL_LEVEL,
+  points: getMinimumPointsForLevel(DEFAULT_INITIAL_LEVEL),
 };
 
 export class LocalStorageService {
@@ -20,10 +27,10 @@ export class LocalStorageService {
   static loadUserProfile(): { level: number; points: number } {
     try {
       const stored = localStorage.getItem(STORAGE_KEYS.USER_PROFILE);
-      return stored ? JSON.parse(stored) : { level: 1, points: 0 };
+      return stored ? JSON.parse(stored) : DEFAULT_USER_PROFILE;
     } catch (error) {
       console.error('Failed to load user profile', error);
-      return { level: 1, points: 0 };
+      return DEFAULT_USER_PROFILE;
     }
   }
 

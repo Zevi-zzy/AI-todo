@@ -60,7 +60,7 @@ export const Header: React.FC = () => {
     <>
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="h-16 flex items-center gap-3 flex-nowrap overflow-x-auto">
+          <div className="h-16 flex items-center gap-3 flex-nowrap overflow-x-hidden">
             <div className="flex items-center space-x-3 flex-nowrap shrink-0">
               <div className="bg-blue-600 p-2 rounded-lg">
                 <LayoutGrid className="w-6 h-6 text-white" />

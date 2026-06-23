@@ -46,6 +46,17 @@ if [ ! -d "node_modules" ]; then
     fi
 fi
 
+# 自动修复被“拍平”的 .bin 软链接（项目被复制/打包后，软链接常被还原成普通文件，导致 vite 无法启动）
+# 判断依据：node_modules/.bin/vite 正常应为软链接，若不是则说明链接已损坏，需重建
+if [ -d "node_modules" ] && [ ! -L "node_modules/.bin/vite" ]; then
+    echo "🔧 检测到依赖链接异常，正在自动修复 (npm rebuild)..."
+    npm rebuild
+    if [ $? -ne 0 ] || [ ! -L "node_modules/.bin/vite" ]; then
+        echo "⚠️  自动修复未完全成功，正在尝试重新安装依赖..."
+        npm install
+    fi
+fi
+
 # 启动服务
 echo "🚀 服务启动中..."
 echo "提示：服务启动成功后会自动打开浏览器。"

@@ -43,7 +43,7 @@ export const useStore = create<AppState>((set) => {
   // 如果本地存的积分小于已完成任务数，说明有历史任务没算分
   // 或者我们可以直接信任“已完成任务数”作为总积分（如果不考虑其他加分项的话）
   // 为了简单可靠，我们直接用 tasks 计算出来的积分覆盖 stored profile
-  const realPoints = completedTasksCount;
+  const realPoints = Math.max(completedTasksCount, initialUser.points);
   const realLevel = calculateLevel(realPoints);
   
   const userProfile = {
