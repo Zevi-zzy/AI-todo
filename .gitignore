@@ -20,6 +20,9 @@ dist-ssr
 .trae_github_ed25519
 .trae_github_ed25519.pub
 
+# Claude Code 本机配置（不提交）
+.claude/settings.local.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

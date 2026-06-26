@@ -1,89 +1,91 @@
 import { create } from 'zustand';
-import { v4 as uuidv4 } from 'uuid';
-import { AppState, DeletedTaskLogEntry, Priority, RestoredTaskLogEntry, Task, TimeView, TaskCategory } from '../types';
-import { LocalStorageService } from '../services/storage';
-import { calculateLevel } from '../lib/level';
-import { OVERDUE_ARCHIVE_MS } from '../lib/constants';
+import { AppState, Priority, Task, TimeView, TaskCategory } from '../types';
+import { Api, migrateFromLocalStorageIfNeeded } from '../services/api';
 
-export const useStore = create<AppState>((set) => {
-  const normalizeTask = (t: any): Task => ({
-    ...t,
-    category: t.category || 'work',
-    updatedAt: typeof t.updatedAt === 'number' ? t.updatedAt : t.createdAt,
-    isArchived: Boolean(t.isArchived),
-  });
-
-  const applyAutoArchive = (inputTasks: Task[], now: number) => {
-    let changed = false;
-    const tasks = inputTasks.map((t) => {
-      if (t.status === 'pending' && !t.isArchived && t.updatedAt <= now - OVERDUE_ARCHIVE_MS) {
-        changed = true;
-        return { ...t, isArchived: true, archivedAt: now };
-      }
-      return t;
-    });
-    return { tasks, changed };
+// 数据真相源在本地后端（数据/store.json）。store 负责调用 API 并同步本地视图，
+// 方法签名与旧版保持一致，组件层无需改动。
+export const useStore = create<AppState & {
+  init: () => Promise<void>;
+  refresh: () => Promise<void>;
+}>((set, get) => {
+  const applyResult = (res: { tasks: Task[]; user: AppState['user'] }) => {
+    set({ tasks: res.tasks, user: res.user });
   };
 
-  const loadedTasks = LocalStorageService.loadTasks().map(normalizeTask);
-  const { tasks, changed } = applyAutoArchive(loadedTasks, Date.now());
-  if (changed) {
-    LocalStorageService.saveTasks(tasks);
-  }
-
-  // 初始化时计算历史任务积分
-  const initialUser = LocalStorageService.loadUserProfile();
-  
-  // 如果是初次加载（积分还是0），或者需要重新校准，可以统计一下历史已完成的任务
-  // 简单的策略：如果本地存储的积分明显少于已完成任务数，进行一次“补分”
-  // 这里我们采取一个策略：每次初始化Store时，都重新计算一次总积分，确保数据一致性
-  // 这样既解决了历史任务没分的问题，也解决了积分不同步的问题
-  const completedTasksCount = tasks.filter(t => t.status === 'completed').length;
-  
-  // 如果本地存的积分小于已完成任务数，说明有历史任务没算分
-  // 或者我们可以直接信任“已完成任务数”作为总积分（如果不考虑其他加分项的话）
-  // 为了简单可靠，我们直接用 tasks 计算出来的积分覆盖 stored profile
-  const realPoints = Math.max(completedTasksCount, initialUser.points);
-  const realLevel = calculateLevel(realPoints);
-  
-  const userProfile = {
-    level: realLevel,
-    points: realPoints
+  const logError = (action: string) => (err: unknown) => {
+    console.error(`[zevi-todo] ${action} 失败：`, err);
   };
-  
-  // 如果计算出的和存储的不一样，更新一下存储
-  if (userProfile.points !== initialUser.points) {
-    LocalStorageService.saveUserProfile(userProfile);
-  }
 
   return {
-    tasks,
-    currentView: LocalStorageService.loadViewPreference() || 'today',
+    tasks: [],
+    currentView: Api.loadViewPreference() || 'today',
     currentCategory: 'work',
     searchQuery: '',
-    user: userProfile,
-    isLoading: false,
+    user: { level: 7, points: 0 },
+    isLoading: true,
+
+    // 启动：拉取后端状态；首次运行时把旧 LocalStorage 数据迁移过来。
+    init: async () => {
+      try {
+        let state = await Api.getState();
+        const migrated = await migrateFromLocalStorageIfNeeded(state.tasks.length);
+        if (migrated) state = await Api.getState();
+        set({ tasks: state.tasks, user: state.user, isLoading: false });
+      } catch (err) {
+        logError('初始化')(err);
+        set({ isLoading: false });
+      }
+    },
+
+    // 轮询/窗口聚焦时刷新，让 Agent 在命令行做的改动也能反映到页面。
+    refresh: async () => {
+      try {
+        const state = await Api.getState();
+        set({ tasks: state.tasks, user: state.user });
+      } catch (err) {
+        logError('刷新')(err);
+      }
+    },
 
     addTask: (content: string, priority: Priority, category: TaskCategory) => {
-      const now = Date.now();
-      const newTask: Task = {
-        id: uuidv4(),
-        content,
-        priority,
-        category,
-        status: 'pending',
-        createdAt: now,
-        updatedAt: now,
-        order: now,
-        isArchived: false,
-      };
-    
-      set((state) => {
-        const merged = [newTask, ...state.tasks];
-        const { tasks: archived } = applyAutoArchive(merged, now);
-        LocalStorageService.saveTasks(archived);
-        return { tasks: archived };
-      });
+      Api.addTask(content, priority, category).then(applyResult).catch(logError('新建任务'));
+    },
+
+    toggleTaskStatus: (taskId: string) => {
+      Api.toggleStatus(taskId).then(applyResult).catch(logError('切换完成状态'));
+    },
+
+    deleteTask: (taskId: string) => {
+      Api.deleteTask(taskId).then(applyResult).catch(logError('删除任务'));
+    },
+
+    restoreTask: (taskId: string, reason: string) => {
+      if (!reason.trim()) return;
+      Api.restoreTask(taskId, reason).then(applyResult).catch(logError('恢复任务'));
+    },
+
+    deleteArchivedTask: (taskId: string, reason: string) => {
+      if (!reason.trim()) return;
+      Api.deleteArchivedTask(taskId, reason).then(applyResult).catch(logError('彻底删除任务'));
+    },
+
+    reorderTasks: (activeId: string, overId: string) => {
+      // 乐观更新：先本地交换，再请求后端，避免拖拽时闪烁。
+      const { tasks } = get();
+      const oldIndex = tasks.findIndex((t) => t.id === activeId);
+      const newIndex = tasks.findIndex((t) => t.id === overId);
+      if (oldIndex >= 0 && newIndex >= 0) {
+        const next = [...tasks];
+        const [moved] = next.splice(oldIndex, 1);
+        next.splice(newIndex, 0, moved);
+        set({ tasks: next });
+      }
+      Api.reorder(activeId, overId).then(applyResult).catch(logError('排序'));
+    },
+
+    setTimeView: (view: TimeView) => {
+      set({ currentView: view });
+      Api.saveViewPreference(view);
     },
 
     setCategory: (category: TaskCategory) => {
@@ -94,160 +96,8 @@ export const useStore = create<AppState>((set) => {
       set({ searchQuery: query });
     },
 
-    toggleTaskStatus: (taskId: string) => {
-      set((state) => {
-        let pointsDelta = 0;
-        const now = Date.now();
-
-        const newTasks = state.tasks.map((t) => {
-          if (t.id === taskId) {
-              const newStatus: "pending" | "completed" = t.status === 'pending' ? 'completed' : 'pending';
-              // Calculate points delta
-              if (newStatus === 'completed') {
-                pointsDelta = 1;
-              } else {
-                pointsDelta = -1;
-              }
-
-              return {
-                ...t,
-                status: newStatus,
-                completedAt: newStatus === 'completed' ? now : undefined,
-                updatedAt: now,
-              };
-          }
-          return t;
-        });
-
-        const { tasks: archivedTasks } = applyAutoArchive(newTasks, now);
-
-        // Update user profile
-        const currentPoints = state.user.points;
-        // Prevent points from going below 0
-        const newPoints = Math.max(0, currentPoints + pointsDelta);
-        const newLevel = calculateLevel(newPoints);
-        
-        const newUserProfile = {
-          level: newLevel,
-          points: newPoints
-        };
-
-        LocalStorageService.saveTasks(archivedTasks);
-        LocalStorageService.saveUserProfile(newUserProfile);
-        
-        return { 
-          tasks: archivedTasks,
-          user: newUserProfile
-        };
-      });
-    },
-
-    deleteTask: (taskId: string) => {
-      set((state) => {
-        const newTasks = state.tasks.filter((t) => t.id !== taskId);
-        LocalStorageService.saveTasks(newTasks);
-        return { tasks: newTasks };
-      });
-    },
-
-    restoreTask: (taskId: string, reason: string) => {
-      set((state) => {
-        const trimmedReason = reason.trim();
-        if (!trimmedReason) return state;
-
-        const target = state.tasks.find((t) => t.id === taskId);
-        if (!target || !target.isArchived) return state;
-
-        const now = Date.now();
-        const entry: RestoredTaskLogEntry = {
-          id: target.id,
-          content: target.content,
-          priority: target.priority,
-          category: target.category,
-          status: target.status,
-          createdAt: target.createdAt,
-          updatedAt: target.updatedAt,
-          completedAt: target.completedAt,
-          archivedAt: target.archivedAt,
-          restoredAt: now,
-          reason: trimmedReason,
-        };
-        LocalStorageService.appendRestoreLog(entry);
-
-        const restored = state.tasks.map((t) =>
-          t.id === taskId ? { ...t, isArchived: false, archivedAt: undefined, updatedAt: now } : t
-        );
-        const { tasks: archivedTasks } = applyAutoArchive(restored, now);
-        LocalStorageService.saveTasks(archivedTasks);
-        return { tasks: archivedTasks };
-      });
-    },
-
-    deleteArchivedTask: (taskId: string, reason: string) => {
-      set((state) => {
-        const trimmedReason = reason.trim();
-        if (!trimmedReason) return state;
-
-        const target = state.tasks.find((t) => t.id === taskId);
-        if (!target) return state;
-
-        const now = Date.now();
-        const entry: DeletedTaskLogEntry = {
-          id: target.id,
-          content: target.content,
-          priority: target.priority,
-          category: target.category,
-          status: target.status,
-          createdAt: target.createdAt,
-          updatedAt: target.updatedAt,
-          completedAt: target.completedAt,
-          archivedAt: target.archivedAt,
-          deletedAt: now,
-          reason: trimmedReason,
-        };
-
-        LocalStorageService.appendDeletionLog(entry);
-
-        const remaining = state.tasks.filter((t) => t.id !== taskId);
-        const { tasks: archivedTasks } = applyAutoArchive(remaining, now);
-        LocalStorageService.saveTasks(archivedTasks);
-        return { tasks: archivedTasks };
-      });
-    },
-
-    reorderTasks: (activeId: string, overId: string) => {
-      set((state) => {
-        const now = Date.now();
-        const oldIndex = state.tasks.findIndex((t) => t.id === activeId);
-        const newIndex = state.tasks.findIndex((t) => t.id === overId);
-        
-        if (oldIndex < 0 || newIndex < 0) return state;
-
-        const newTasks = [...state.tasks];
-        const [movedTask] = newTasks.splice(oldIndex, 1);
-        newTasks.splice(newIndex, 0, { ...movedTask, updatedAt: now });
-        
-        const { tasks: archivedTasks } = applyAutoArchive(newTasks, now);
-        LocalStorageService.saveTasks(archivedTasks);
-        return { tasks: archivedTasks };
-      });
-    },
-
-    setTimeView: (view: TimeView) => {
-      set({ currentView: view });
-      LocalStorageService.saveViewPreference(view);
-    },
-
     updateTask: (taskId: string, updates: Partial<Task>) => {
-      set((state) => {
-        const now = Date.now();
-        const newTasks = state.tasks.map((t) =>
-          t.id === taskId ? { ...t, ...updates, updatedAt: now } : t
-        );
-        const { tasks: archivedTasks } = applyAutoArchive(newTasks, now);
-        LocalStorageService.saveTasks(archivedTasks);
-        return { tasks: archivedTasks };
-      });
-    }
+      Api.updateTask(taskId, updates).then(applyResult).catch(logError('更新任务'));
+    },
   };
 });

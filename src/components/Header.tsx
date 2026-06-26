@@ -3,7 +3,7 @@ import { LayoutGrid, Download, Upload, Search, X, Archive, BookOpen } from 'luci
 import { TimeFilter } from './TimeFilter';
 import { CategoryFilter } from './CategoryFilter';
 import { LevelProgress } from './LevelProgress';
-import { LocalStorageService } from '../services/storage';
+import { Api } from '../services/api';
 import { useStore } from '../store/useStore';
 import { ArchiveDrawer } from './ArchiveDrawer';
 import { UserManualDialog } from './UserManualDialog';
@@ -15,8 +15,9 @@ export const Header: React.FC = () => {
   const { searchQuery, setSearchQuery, tasks } = useStore();
   const archivedCount = tasks.filter((t) => t.isArchived).length;
 
-  const handleExport = () => {
-    const data = LocalStorageService.exportData();
+  const handleExport = async () => {
+    const state = await Api.exportData();
+    const data = JSON.stringify(state, null, 2);
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -37,15 +38,16 @@ export const Header: React.FC = () => {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const content = event.target?.result as string;
       if (content) {
         if (window.confirm('导入将覆盖当前所有数据，确定要继续吗？')) {
-          const success = LocalStorageService.importData(content);
-          if (success) {
+          try {
+            await Api.importData(content);
             alert('数据导入成功！页面即将刷新。');
             window.location.reload();
-          } else {
+          } catch (err) {
+            console.error(err);
             alert('数据导入失败，请检查文件格式。');
           }
         }

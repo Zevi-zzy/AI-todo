@@ -1,9 +1,25 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Header } from './components/Header';
 import { TaskInput } from './components/TaskInput';
 import { QuadrantMatrix } from './components/QuadrantMatrix';
+import { useStore } from './store/useStore';
 
 function App() {
+  const init = useStore((s) => s.init);
+  const refresh = useStore((s) => s.refresh);
+
+  useEffect(() => {
+    init();
+    // 定时轮询 + 窗口重新聚焦时刷新，让 Agent 在命令行做的改动也同步到页面。
+    const timer = window.setInterval(refresh, 5000);
+    const onFocus = () => refresh();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [init, refresh]);
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Header />

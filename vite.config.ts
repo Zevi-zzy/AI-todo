@@ -11,6 +11,13 @@ export default defineConfig({
   server: {
     port: 5173,
     open: true,
+    proxy: {
+      // 前端 /api 转发到本地后端（数据/store.json）
+      '/api': {
+        target: `http://127.0.0.1:${process.env.ZEVI_TODO_PORT || 3456}`,
+        changeOrigin: true,
+      },
+    },
   },
   plugins: [
     react(),

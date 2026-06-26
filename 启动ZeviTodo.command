@@ -57,7 +57,20 @@ if [ -d "node_modules" ] && [ ! -L "node_modules/.bin/vite" ]; then
     fi
 fi
 
-# 启动服务
+# 启动本地后端（任务数据 API，落盘到 数据/store.json）
+echo "🗂️  启动本地数据服务..."
+node server/server.mjs &
+SERVER_PID=$!
+
+# 退出时（Ctrl+C 或关闭窗口）一并关掉后端，避免端口残留
+cleanup() {
+    if [ -n "$SERVER_PID" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
+        kill "$SERVER_PID" 2>/dev/null
+    fi
+}
+trap cleanup EXIT INT TERM
+
+# 启动前端服务
 echo "🚀 服务启动中..."
 echo "提示：服务启动成功后会自动打开浏览器。"
 echo "如果不小心关闭了浏览器，请访问: http://localhost:5173"
