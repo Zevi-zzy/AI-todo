@@ -57,6 +57,28 @@ if [ -d "node_modules" ] && [ ! -L "node_modules/.bin/vite" ]; then
     fi
 fi
 
+# 清理本项目上一次没退干净的残留进程（只清本项目，不动其它程序）
+echo "🧹 检查并清理旧进程..."
+pkill -f "$DIR/server/server.mjs" 2>/dev/null
+pkill -f "$DIR/node_modules/vite" 2>/dev/null
+sleep 1
+
+# 端口占用检测：若 3456/5173 仍被占用，尝试释放（仅提示，避免误杀他人进程）
+for PORT in 3456 5173; do
+    PIDS=$(lsof -nP -iTCP:$PORT -sTCP:LISTEN -t 2>/dev/null)
+    if [ -n "$PIDS" ]; then
+        # 只清理属于本项目的占用进程
+        for P in $PIDS; do
+            if ps -p "$P" -o command= 2>/dev/null | grep -q "$DIR"; then
+                kill "$P" 2>/dev/null && echo "   已释放端口 $PORT（本项目残留进程 $P）"
+            else
+                echo "   ⚠️  端口 $PORT 被其它程序占用（PID $P），如启动失败请手动检查。"
+            fi
+        done
+        sleep 1
+    fi
+done
+
 # 启动本地后端（任务数据 API，落盘到 数据/store.json）
 echo "🗂️  启动本地数据服务..."
 node server/server.mjs &
