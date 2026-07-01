@@ -103,6 +103,7 @@ const HELP = `Zevi AI to-do CLI
   done <id|#序号|内容>       标记完成（+1 积分）
   undone <id>               取消完成（-1 积分）
   update <id> [--content ...] [--priority ...] [--category ...]
+  move <id> --before <id2>|--after <id2>|--top|--bottom   调整象限内显示顺序
   delete <id>               直接删除活动任务（不写日志）
   restore <id> --reason ... 从收纳箱恢复（须填理由）
   archive-delete <id> --reason ...  从收纳箱彻底删除（写删除日志）
@@ -209,6 +210,22 @@ async function main() {
         return domain.updateTask(s, id, updates);
       });
       printOne(task, '已更新任务');
+      break;
+    }
+
+    case 'move': {
+      const before = typeof flags.before === 'string' ? flags.before : undefined;
+      const after = typeof flags.after === 'string' ? flags.after : undefined;
+      const { task } = await mutate((s) => {
+        const id = domain.resolveTaskId(s, positionals[0] ?? '');
+        const opts = {};
+        if (flags.top === true) opts.top = true;
+        else if (flags.bottom === true) opts.bottom = true;
+        else if (before) opts.before = domain.resolveTaskId(s, before);
+        else if (after) opts.after = domain.resolveTaskId(s, after);
+        return domain.moveTask(s, id, opts);
+      });
+      printOne(task, '已调整顺序');
       break;
     }
 

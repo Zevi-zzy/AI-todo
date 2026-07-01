@@ -44,6 +44,7 @@ node server/cli.mjs add "回复客户微信" --priority ui --category work
 node server/cli.mjs done <id>                     # 标记完成（+1 积分）
 node server/cli.mjs undone <id>                   # 取消完成
 node server/cli.mjs update <id> --content "新文案" --priority ni
+node server/cli.mjs move <id> --before <id2>      # 排到某任务上方(--after/--top/--bottom)
 node server/cli.mjs delete <id>                   # 删除活动任务（不写日志）
 node server/cli.mjs restore <id> --reason "重新开始处理"        # 从收纳箱恢复
 node server/cli.mjs archive-delete <id> --reason "已不再需要"   # 收纳箱彻底删除

@@ -299,6 +299,21 @@ export function deleteArchivedTask(state, id, reason) {
   };
 }
 
+// 调整任务在象限内的显示顺序（改 order 字段；显示按 order 从大到小）。
+// opts: { before, after, top, bottom }（before/after 传参考任务的 id）
+export function moveTask(state, id, opts = {}) {
+  const target = getById(state, id);
+  const orders = state.tasks.map((t) => t.order);
+  let newOrder;
+  if (opts.top) newOrder = Math.max(...orders) + 1000;
+  else if (opts.bottom) newOrder = Math.min(...orders) - 1000;
+  else if (opts.before) newOrder = getById(state, opts.before).order + 1; // 排到参考任务上方
+  else if (opts.after) newOrder = getById(state, opts.after).order - 1; // 排到参考任务下方
+  else throw new Error('需指定 --before/--after <id> 或 --top/--bottom');
+  const tasks = state.tasks.map((t) => (t.id === target.id ? { ...t, order: newOrder } : t));
+  return { state: { ...state, tasks }, task: tasks.find((t) => t.id === target.id) };
+}
+
 export function reorderTasks(state, activeId, overId) {
   const now = Date.now();
   const oldIndex = state.tasks.findIndex((t) => t.id === activeId);
